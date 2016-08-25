@@ -14,14 +14,15 @@ RUN apt-get update && \
         psmisc \
         python-tox
 
-# Install Go 1.6
-RUN curl -o go.tar.gz https://storage.googleapis.com/golang/go1.6.2.linux-amd64.tar.gz
-RUN echo 'e40c36ae71756198478624ed1bb4ce17597b3c19d243f3f0899bb5740d56212a  go.tar.gz' | sha256sum -c && \
+# Install Go 1.5
+RUN curl -o go.tar.gz https://storage.googleapis.com/golang/go1.5.4.linux-amd64.tar.gz
+RUN echo 'a3358721210787dc1e06f5ea1460ae0564f22a0fbd91be9dcd947fb1d19b9560  go.tar.gz' | sha256sum -c && \
     tar xzf go.tar.gz -C /usr/local && \
     rm go.tar.gz
 RUN mkdir -p /go
 ENV PATH $PATH:/usr/local/go/bin
 ENV GOPATH=/go
+ENV GO15VENDOREXPERIMENT=1
 
 # Go tools
 RUN go get github.com/rancher/trash
