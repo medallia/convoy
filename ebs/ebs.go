@@ -15,6 +15,7 @@ import (
 
 	. "github.com/rancher/convoy/convoydriver"
 	. "github.com/rancher/convoy/logging"
+	"github.com/aws/aws-sdk-go/aws"
 )
 
 const (
@@ -263,6 +264,7 @@ func (d *Driver) CreateVolume(req Request) error {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 
+	log.Debugf("Create volume request object: %v", req)
 	id := req.Name
 	opts := req.Options
 
@@ -275,6 +277,8 @@ func (d *Driver) CreateVolume(req Request) error {
 		return fmt.Errorf("Volume %v already exists", id)
 	}
 
+	//EBS volume name
+	volumeName := opts[OPT_VOLUME_NAME]
 	//EBS volume ID
 	volumeID := opts[OPT_VOLUME_DRIVER_ID]
 	backupURL := opts[OPT_BACKUP_URL]
@@ -285,6 +289,7 @@ func (d *Driver) CreateVolume(req Request) error {
 	newTags := map[string]string{
 		"Name": id,
 	}
+	// Run some searches on AWS to see if we find a volume that might be not on our system but provisioned in AWS
 	if volumeID != "" {
 		ebsVolume, err := d.ebsService.GetVolume(volumeID)
 		if err != nil {
@@ -295,7 +300,16 @@ func (d *Driver) CreateVolume(req Request) error {
 		if err := d.ebsService.AddTags(volumeID, newTags); err != nil {
 			log.Debugf("Failed to update tags for volume %v, but continue", volumeID)
 		}
-	} else if backupURL != "" {
+	}else if volumeName != "" {
+		log.Debugf("Looking up volume by name %s", volumeName)
+		ebsVolume, err := d.ebsService.GetVolumeByName(volumeName)
+		if err != nil {
+			return err
+		}
+		volumeSize = *ebsVolume.Size * GB
+		volumeID = aws.StringValue(ebsVolume.VolumeId)
+		log.Debugf("Found EBS volume %v with name %v", volumeID, volumeName)
+	}else if backupURL != "" {
 		region, ebsSnapshotID, err := decodeURL(backupURL)
 		if err != nil {
 			return err
