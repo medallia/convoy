@@ -285,6 +285,18 @@ func (d *Driver) CreateVolume(req Request) error {
 	if backupURL != "" && volumeID != "" {
 		return fmt.Errorf("Cannot specify both backup and EBS volume ID")
 	}
+	if volumeID != "" && volumeName != "" {
+		return fmt.Errorf("Cannot specify both EBS volume ID and EBS volume Name")
+	}
+	if volumeName != "" {
+		log.Debugf("Looking up volume by name %s", volumeName)
+		ebsVolume, err := d.ebsService.GetVolumeByName(volumeName)
+		if err == nil {
+			volumeSize = *ebsVolume.Size * GB
+			volumeID = aws.StringValue(ebsVolume.VolumeId)
+			log.Debugf("Found EBS volume %v with name %v", volumeID, volumeName)
+		}
+	}
 
 	newTags := map[string]string{
 		"Name": id,
@@ -300,15 +312,6 @@ func (d *Driver) CreateVolume(req Request) error {
 		if err := d.ebsService.AddTags(volumeID, newTags); err != nil {
 			log.Debugf("Failed to update tags for volume %v, but continue", volumeID)
 		}
-	}else if volumeName != "" {
-		log.Debugf("Looking up volume by name %s", volumeName)
-		ebsVolume, err := d.ebsService.GetVolumeByName(volumeName)
-		if err != nil {
-			return err
-		}
-		volumeSize = *ebsVolume.Size * GB
-		volumeID = aws.StringValue(ebsVolume.VolumeId)
-		log.Debugf("Found EBS volume %v with name %v", volumeID, volumeName)
 	}else if backupURL != "" {
 		region, ebsSnapshotID, err := decodeURL(backupURL)
 		if err != nil {
@@ -354,7 +357,6 @@ func (d *Driver) CreateVolume(req Request) error {
 		}
 		log.Debugf("Created volume %v from EBS snapshot %v", id, ebsSnapshotID)
 	} else {
-
 		// Create a new EBS volume
 		volumeSize, err = d.getSize(opts, d.DefaultVolumeSize)
 		if err != nil {
