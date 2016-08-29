@@ -242,7 +242,6 @@ func (s *ebsService) GetVolume(volumeID string) (*ec2.Volume, error) {
 }
 
 func (s *ebsService) GetVolumeByName(volumeName string) (*ec2.Volume, error) {
-	sleepBeforeRetry()
 	params := &ec2.DescribeVolumesInput{
 		Filters: []*ec2.Filter{
 			{
