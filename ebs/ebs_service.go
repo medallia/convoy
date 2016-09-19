@@ -31,6 +31,7 @@ type ebsService struct {
 	InstanceID       string
 	Region           string
 	AvailabilityZone string
+	DCName           string
 }
 
 type CreateEBSVolumeRequest struct {
@@ -230,6 +231,14 @@ func (s *ebsService) GetVolume(volumeID string) (*ec2.Volume, error) {
 		VolumeIds: []*string{
 			aws.String(volumeID),
 		},
+		Filters: []*ec2.Filter{
+			{
+				Name: aws.String("availability-zone"),
+				Values: []*string{
+					aws.String(s.AvailabilityZone),
+				},
+			},
+		},
 	}
 	volumes, err := s.ec2Client.DescribeVolumes(params)
 	if err != nil {
@@ -248,6 +257,18 @@ func (s *ebsService) GetVolumeByName(volumeName string) (*ec2.Volume, error) {
 				Name: aws.String("tag:Name"),
 				Values: []*string{
 					aws.String(volumeName),
+				},
+			},
+			{
+				Name: aws.String("tag:DCName"),
+				Values: []*string{
+					aws.String(s.DCName),
+				},
+			},
+			{
+				Name: aws.String("availability-zone"),
+				Values: []*string{
+					aws.String(s.AvailabilityZone),
 				},
 			},
 		},

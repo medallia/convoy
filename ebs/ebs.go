@@ -28,9 +28,11 @@ const (
 
 	EBS_DEFAULT_VOLUME_SIZE = "ebs.defaultvolumesize"
 	EBS_DEFAULT_VOLUME_TYPE = "ebs.defaultvolumetype"
+	EBS_CLUSTER_NAME = "ebs.clustername"
 
 	DEFAULT_VOLUME_SIZE = "4G"
 	DEFAULT_VOLUME_TYPE = "gp2"
+	DEFAULT_CLUSTER_NAME = ""
 
 	MOUNTS_DIR    = "mounts"
 	MOUNT_BINARY  = "mount"
@@ -180,6 +182,11 @@ func Init(root string, config map[string]string) (ConvoyDriver, error) {
 		if err := checkVolumeType(volumeType); err != nil {
 			return nil, err
 		}
+		if config[EBS_CLUSTER_NAME] == "" {
+			config[EBS_CLUSTER_NAME] = DEFAULT_CLUSTER_NAME
+		}
+		log.Debugf("Setting DC name in ebsService as %s", config[EBS_CLUSTER_NAME])
+		ebsService.DCName = config[EBS_CLUSTER_NAME]
 		dev = &Device{
 			Root:              root,
 			DefaultVolumeSize: size,
@@ -298,8 +305,10 @@ func (d *Driver) CreateVolume(req Request) error {
 		}
 	}
 
+	log.Debugf("Creating volume %s for cluster %s", id, d.ebsService.DCName)
 	newTags := map[string]string{
 		"Name": id,
+		"DCName": d.ebsService.DCName,
 	}
 	// Run some searches on AWS to see if we find a volume that might be not on our system but provisioned in AWS
 	if volumeID != "" {
@@ -425,12 +434,15 @@ func (d *Driver) DeleteVolume(req Request) error {
 		log.Debugf("Detached %v(%v) from %v", id, volume.EBSID, volume.Device)
 	}
 
+	// Don't delete as per Medallia design, just remove reference
+	/*
 	if !referenceOnly {
 		if err := d.ebsService.DeleteVolume(volume.EBSID); err != nil {
 			return err
 		}
 		log.Debugf("Deleted %v(%v)", id, volume.EBSID)
 	}
+	*/
 	return util.ObjectDelete(volume)
 }
 
