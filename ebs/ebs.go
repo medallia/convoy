@@ -471,6 +471,12 @@ func (d *Driver) UmountVolume(req Request) error {
 		return err
 	}
 
+	//Medallia specific, unmount docker volume also implies a detach
+	detachErr := d.DeleteVolume(req)
+	if detachErr != nil{
+		return detachErr
+	}
+
 	return nil
 }
 
