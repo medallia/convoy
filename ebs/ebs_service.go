@@ -31,7 +31,8 @@ type ebsService struct {
 	InstanceID       string
 	Region           string
 	AvailabilityZone string
-	DCName           string
+	DCName           string //represents the cluster name, filtering on this tag allows us to have
+				// same volume names across clusters in the same region
 }
 
 type CreateEBSVolumeRequest struct {
@@ -106,12 +107,22 @@ func (s *ebsService) waitForVolumeTransition(volumeID, start, end string) error 
 		return err
 	}
 
+	timeChan := time.NewTimer(time.Second * 61).C
+	tickChan := time.NewTicker(time.Second * 3).C //tick at most 20 times before err out
+
+	POLL:
 	for *volume.State == start {
-		log.Debugf("Waiting for volume %v state transiting from %v to %v",
-			volumeID, start, end)
-		volume, err = s.GetVolume(volumeID)
-		if err != nil {
-			return err
+		select {
+			case <- timeChan:
+				log.Debugf("Timeout Reached, stopping to poll volume state")
+				break POLL
+			case <-tickChan:
+				log.Debugf("Waiting for volume %v state transiting from %v to %v",
+					volumeID, start, end)
+				volume, err = s.GetVolume(volumeID)
+				if err != nil {
+					return err
+				}
 		}
 	}
 	if *volume.State != end {
@@ -236,6 +247,12 @@ func (s *ebsService) GetVolume(volumeID string) (*ec2.Volume, error) {
 				Name: aws.String("availability-zone"),
 				Values: []*string{
 					aws.String(s.AvailabilityZone),
+				},
+			},
+			{
+				Name: aws.String("tag:DCName"),
+				Values: []*string{
+					aws.String(s.DCName),
 				},
 			},
 		},
