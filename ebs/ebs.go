@@ -49,6 +49,7 @@ type Device struct {
 	Root              string
 	DefaultVolumeSize int64
 	DefaultVolumeType string
+	DefaultDCName     string
 }
 
 func (dev *Device) ConfigFile() (string, error) {
@@ -185,12 +186,13 @@ func Init(root string, config map[string]string) (ConvoyDriver, error) {
 		if config[EBS_CLUSTER_NAME] == "" {
 			config[EBS_CLUSTER_NAME] = DEFAULT_CLUSTER_NAME
 		}
-		log.Debugf("Setting DC name in ebsService as %s", config[EBS_CLUSTER_NAME])
-		ebsService.DCName = config[EBS_CLUSTER_NAME]
+		log.Debugf("Setting DC name in driver as %s", config[EBS_CLUSTER_NAME])
+		dcName := config[EBS_CLUSTER_NAME]
 		dev = &Device{
 			Root:              root,
 			DefaultVolumeSize: size,
 			DefaultVolumeType: volumeType,
+			DefaultDCName: dcName,
 		}
 		if err := util.ObjectSave(dev); err != nil {
 			return nil, err
@@ -297,7 +299,7 @@ func (d *Driver) CreateVolume(req Request) error {
 	}
 	if volumeName != "" {
 		log.Debugf("Looking up volume by name %s", volumeName)
-		ebsVolume, err := d.ebsService.GetVolumeByName(volumeName)
+		ebsVolume, err := d.ebsService.GetVolumeByName(volumeName, d.DefaultDCName)
 		if err == nil {
 			volumeSize = *ebsVolume.Size * GB
 			volumeID = aws.StringValue(ebsVolume.VolumeId)
@@ -305,10 +307,10 @@ func (d *Driver) CreateVolume(req Request) error {
 		}
 	}
 
-	log.Debugf("Creating volume %s for cluster %s", id, d.ebsService.DCName)
+	log.Debugf("Creating volume %s for cluster %s in AZ %s", id, d.DefaultDCName, d.ebsService.AvailabilityZone)
 	newTags := map[string]string{
 		"Name": id,
-		"DCName": d.ebsService.DCName,
+		"DCName": d.DefaultDCName,
 	}
 	// Run some searches on AWS to see if we find a volume that might be not on our system but provisioned in AWS
 	if volumeID != "" {
