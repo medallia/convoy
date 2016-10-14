@@ -276,23 +276,45 @@ func (s *daemon) listVolumeInfo(volume *Volume) (*api.VolumeResponse, error) {
 }
 
 func (s *daemon) listVolume() ([]byte, error) {
-	resp := make(map[string]api.VolumeResponse)
+	list := make(map[string]api.VolumeResponse)
 
 	volumes := s.getVolumeList()
 
-	for name := range volumes {
+	for name, driverInfo := range volumes {
 		volume := s.getVolume(name)
 		if volume == nil {
 			return nil, fmt.Errorf("Volume list changed for volume %v", name)
 		}
-		r, err := s.listVolumeInfo(volume)
+
+		resp := &api.VolumeResponse{
+			Name:        name,
+			Driver:      driverInfo["Driver"],
+			MountPoint:  driverInfo["MountPoint"],
+			CreatedTime: driverInfo[OPT_VOLUME_CREATED_TIME],
+			DriverInfo:  driverInfo,
+			Snapshots:   make(map[string]api.SnapshotResponse),
+		}
+		snapshots, err := s.listSnapshotDriverInfos(volume)
+		if err != nil {
+			//snapshot doesn't exists
+			return nil, err
+		}
+		for name, snapshot := range snapshots {
+			snapshot["Driver"] = driverInfo["Driver"]
+			resp.Snapshots[name] = api.SnapshotResponse{
+				Name:        name,
+				CreatedTime: snapshot[OPT_SNAPSHOT_CREATED_TIME],
+				DriverInfo:  snapshot,
+			}
+		}
+
 		if err != nil {
 			return nil, err
 		}
-		resp[name] = *r
+		list[name] = *resp
 	}
 
-	return api.ResponseOutput(resp)
+	return api.ResponseOutput(list)
 }
 
 func (s *daemon) getVolumeDriverInfo(volume *Volume) (map[string]string, error) {
