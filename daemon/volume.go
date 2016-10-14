@@ -276,15 +276,15 @@ func (s *daemon) listVolumeInfo(volume *Volume) (*api.VolumeResponse, error) {
 }
 
 func (s *daemon) listVolume() ([]byte, error) {
+	log.Debugf("Received request to list volumes")
 	list := make(map[string]api.VolumeResponse)
 
+	log.Debugf("Getting information on everything attached to this host.")
 	volumes := s.getVolumeList()
 
 	for name, driverInfo := range volumes {
-		volume := s.getVolume(name)
-		if volume == nil {
-			return nil, fmt.Errorf("Volume list changed for volume %v", name)
-		}
+		log.Debugf("Getting info for volume %s", name)
+		volume := &Volume{Name:name, DriverName:driverInfo["Driver"]}
 
 		resp := &api.VolumeResponse{
 			Name:        name,
@@ -294,6 +294,7 @@ func (s *daemon) listVolume() ([]byte, error) {
 			DriverInfo:  driverInfo,
 			Snapshots:   make(map[string]api.SnapshotResponse),
 		}
+		log.Debugf("Getting info for snapshots for volume %s if any", name)
 		snapshots, err := s.listSnapshotDriverInfos(volume)
 		if err != nil {
 			//snapshot doesn't exists
@@ -311,6 +312,7 @@ func (s *daemon) listVolume() ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
+		log.Debugf("ListVolume computation done.")
 		list[name] = *resp
 	}
 
