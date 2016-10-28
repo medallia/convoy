@@ -29,10 +29,11 @@ const (
 	EBS_DEFAULT_VOLUME_SIZE = "ebs.defaultvolumesize"
 	EBS_DEFAULT_VOLUME_TYPE = "ebs.defaultvolumetype"
 	EBS_CLUSTER_NAME = "ebs.clustername"
-
+	
 	DEFAULT_VOLUME_SIZE = "4G"
 	DEFAULT_VOLUME_TYPE = "gp2"
 	DEFAULT_CLUSTER_NAME = ""
+	FILESYSTEM_NEEDED_TAG = "NeedFS"
 
 	MOUNTS_DIR    = "mounts"
 	MOUNT_BINARY  = "mount"
@@ -461,20 +462,20 @@ func (d *Driver) MountVolume(req Request) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	log.Debugf("Tags Found for %v %+v", id, tags)
-	if tags["needFS"] != "" {
-		log.Debugf("Tag 'needFS' present in %v(%v), formatting.", id, volume.EBSID)
+	if tags[FILESYSTEM_NEEDED_TAG] != "" {
+		log.Debugf("Tag '%v' present in %v(%v), formatting.", FILESYSTEM_NEEDED_TAG, id, volume.EBSID)
 		if _, err := util.Execute("mkfs", []string{"-t", "ext4", volume.Device}); err != nil {
 			return "", err
 		}
+		log.Debugf("Volume %v(%v) formated", id, volume.EBSID)
 		needFsTag := make(map[string]string)
-		needFsTag["needFS"] = "True"
+		needFsTag[FILESYSTEM_NEEDED_TAG] = tags[FILESYSTEM_NEEDED_TAG]
 		if err := d.ebsService.DeleteTags(volume.EBSID, needFsTag); err != nil {
-			log.Errorf("Filesystem created in %v but Tag not removed")
+			log.Errorf("Filesystem created in %v but Tag %v not removed", id, FILESYSTEM_NEEDED_TAG)
 			return "", err
 		}
 	} else {
-		log.Debugf("Tag 'needFS' not present in %v(%v)", id, volume.EBSID)
+		log.Debugf("Tag '%v' not present in %v(%v)", id, volume.EBSID, FILESYSTEM_NEEDED_TAG)
 	}
 
 	mountPoint, err := util.VolumeMount(volume, opts[OPT_MOUNT_POINT], false)
