@@ -457,6 +457,26 @@ func (d *Driver) MountVolume(req Request) (string, error) {
 		return "", err
 	}
 
+	tags, err := d.ebsService.GetTags(volume.EBSID)
+	if err != nil {
+		return "", err
+	}
+	log.Debugf("Tags Found for %v %+v", id, tags)
+	if tags["needFS"] != "" {
+		log.Debugf("Tag 'needFS' present in %v(%v), formatting.", id, volume.EBSID)
+		if _, err := util.Execute("mkfs", []string{"-t", "ext4", volume.Device}); err != nil {
+			return "", err
+		}
+		needFsTag := make(map[string]string)
+		needFsTag["needFS"] = "True"
+		if err := d.ebsService.DeleteTags(volume.EBSID, needFsTag); err != nil {
+			log.Errorf("Filesystem created in %v but Tag not removed")
+			return "", err
+		}
+	} else {
+		log.Debugf("Tag 'needFS' not present in %v(%v)", id, volume.EBSID)
+	}
+
 	mountPoint, err := util.VolumeMount(volume, opts[OPT_MOUNT_POINT], false)
 	if err != nil {
 		// if device doesn't exist, it's a stale entry. Delete from state
