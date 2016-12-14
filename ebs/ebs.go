@@ -272,6 +272,52 @@ func (d *Driver) getTypeAndIOPS(opts map[string]string) (string, int64, error) {
 	return volumeType, iops, nil
 }
 
+func getTagValue(key string, tags []*ec2.Tag) string {
+	for _, tag := range tags {
+		if key == *tag.Key {
+			return *tag.Value
+		}
+	}
+	return ""
+}
+
+func (d *Driver) buildFromSnapshot(ebsSnapshotID string, opts map[string]string, newTags map[string]string) (string, int64, error) {
+	if err := d.ebsService.WaitForSnapshotComplete(ebsSnapshotID); err != nil {
+		return "", -1, err
+	}
+	log.Debugf("Snapshot %v is ready", ebsSnapshotID)
+	ebsSnapshot, err := d.ebsService.GetSnapshot(ebsSnapshotID)
+	if err != nil {
+		return "", -1, err
+	}
+	snapshotVolumeSize := *ebsSnapshot.VolumeSize * GB
+	volumeSize, err := d.getSize(opts, snapshotVolumeSize)
+	if err != nil {
+		return "", volumeSize, err
+	}
+	if volumeSize < snapshotVolumeSize {
+		return "", volumeSize, fmt.Errorf("Volume size cannot be less than snapshot size %v", snapshotVolumeSize)
+	}
+
+	volumeType, iops, err := d.getTypeAndIOPS(opts)
+	if err != nil {
+		return "", volumeSize, err
+	}
+	r := &CreateEBSVolumeRequest{
+		Size:       volumeSize,
+		SnapshotID: ebsSnapshotID,
+		VolumeType: volumeType,
+		IOPS:       iops,
+		Tags:       newTags,
+	}
+	volumeID, err := d.ebsService.CreateVolume(r)
+	if err != nil {
+		return volumeID, volumeSize, err
+	}
+	log.Debugf("Created volume %v from EBS snapshot %v", volumeID, ebsSnapshotID)
+	return volumeID, volumeSize, nil
+}
+
 func (d *Driver) CreateVolume(req Request) error {
 	var (
 		err        error
@@ -334,12 +380,38 @@ func (d *Driver) CreateVolume(req Request) error {
 		if err != nil {
 			return err
 		}
-		volumeSize = *ebsVolume.Size * GB
-		log.Debugf("Found EBS volume %v for volume %v, update tags", volumeID, id)
-		if err := d.ebsService.AddTags(volumeID, newTags); err != nil {
-			log.Debugf("Failed to update tags for volume %v, but continue", volumeID)
+		// Verify that there isn't a more recent snapshot from another AZ
+		otherAZNames := d.ebsService.OtherAvailabilityZones
+		mostRecentSnapshot, err := d.ebsService.GetMostRecentSnapshot(
+			volumeName,
+			d.DefaultDCName,
+			&ec2.Filter {
+				Name: aws.String("tag:AZ"),
+				Values: otherAZNames,
+			},
+		)
+		// If there are snapshots from another AZ then compare them to the create time of the volume in this AZ
+		// If the snapshot is greater then delete the volume and recreate it from the snapshot because the snapshot is more up to date
+		// Otherwise just make sure the tags on the volume are correct
+		if mostRecentSnapshot != nil && (*mostRecentSnapshot.StartTime).After(*ebsVolume.CreateTime) {
+			log.Printf("Volume \"%s\" in AZ %s was created at %+v which is BEFORE the last known snapshot of %+v from other AZ's\n", volumeName, d.ebsService.AvailabilityZone, *ebsVolume.CreateTime, *mostRecentSnapshot.StartTime)
+			log.Printf("Recreating %s", volumeName)
+			if err := d.ebsService.DeleteVolume(*ebsVolume.VolumeId); err != nil {
+				return err
+			}
+			newTags["SnapshotFreqSecs"] = getTagValue("SnapshotFreqSecs", mostRecentSnapshot.Tags)
+			volumeID, volumeSize, err = d.buildFromSnapshot(*mostRecentSnapshot.SnapshotId, opts, newTags)
+			if err != nil {
+				return err
+			}
+		} else {
+			volumeSize = *ebsVolume.Size * GB
+			log.Debugf("Found EBS volume %v for volume %v, update tags", volumeID, id)
+			if err := d.ebsService.AddTags(volumeID, newTags); err != nil {
+				log.Debugf("Failed to update tags for volume %v, but continue", volumeID)
+			}
 		}
-	}else if backupURL != "" {
+	} else if backupURL != "" {
 		region, ebsSnapshotID, err := decodeURL(backupURL)
 		if err != nil {
 			return err
@@ -350,62 +422,48 @@ func (d *Driver) CreateVolume(req Request) error {
 			return fmt.Errorf("Snapshot %v is at %v rather than current region %v. Copy snapshot is needed",
 				ebsSnapshotID, region, d.ebsService.Region)
 		}
-		if err := d.ebsService.WaitForSnapshotComplete(ebsSnapshotID); err != nil {
-			return err
-		}
-		log.Debugf("Snapshot %v is ready", ebsSnapshotID)
-		ebsSnapshot, err := d.ebsService.GetSnapshot(ebsSnapshotID)
+		volumeID, volumeSize, err = d.buildFromSnapshot(ebsSnapshotID, opts, newTags)
 		if err != nil {
 			return err
 		}
-
-		snapshotVolumeSize := *ebsSnapshot.VolumeSize * GB
-		volumeSize, err = d.getSize(opts, snapshotVolumeSize)
-		if err != nil {
-			return err
-		}
-		if volumeSize < snapshotVolumeSize {
-			return fmt.Errorf("Volume size cannot be less than snapshot size %v", snapshotVolumeSize)
-		}
-		volumeType, iops, err := d.getTypeAndIOPS(opts)
-		if err != nil {
-			return err
-		}
-		r := &CreateEBSVolumeRequest{
-			Size:       volumeSize,
-			SnapshotID: ebsSnapshotID,
-			VolumeType: volumeType,
-			IOPS:       iops,
-			Tags:       newTags,
-		}
-		volumeID, err = d.ebsService.CreateVolume(r)
-		if err != nil {
-			return err
-		}
-		log.Debugf("Created volume %v from EBS snapshot %v", id, ebsSnapshotID)
 	} else {
-		// Create a new EBS volume
-		volumeSize, err = d.getSize(opts, d.DefaultVolumeSize)
+		// Get the most recent snapshot so we can check to see if one exists for this "new" volume
+		mostRecentSnapshot, err := d.ebsService.GetMostRecentSnapshot(volumeName, d.DefaultDCName)
 		if err != nil {
 			return err
 		}
-		volumeType, iops, err := d.getTypeAndIOPS(opts)
-		if err != nil {
-			return err
+		if mostRecentSnapshot != nil {
+			// There is a snapshot of this volume, we should build the new volume for this AZ from it
+			newTags["SnapshotFreqSecs"] = getTagValue("SnapshotFreqSecs", mostRecentSnapshot.Tags)
+			volumeID, volumeSize, err = d.buildFromSnapshot(*mostRecentSnapshot.SnapshotId, opts, newTags)
+			if err != nil {
+				return err
+			}
+		} else {
+			// No snapshot exists of this volume
+			// Create a new EBS volume
+			volumeSize, err = d.getSize(opts, d.DefaultVolumeSize)
+			if err != nil {
+				return err
+			}
+			volumeType, iops, err := d.getTypeAndIOPS(opts)
+			if err != nil {
+				return err
+			}
+			r := &CreateEBSVolumeRequest{
+				Size:       volumeSize,
+				VolumeType: volumeType,
+				IOPS:       iops,
+				Tags:       newTags,
+				KmsKeyID:   d.DefaultKmsKeyID,
+			}
+			volumeID, err = d.ebsService.CreateVolume(r)
+			if err != nil {
+				return err
+			}
+			log.Debugf("Created volume %s from EBS volume %v", id, volumeID)
+			format = true
 		}
-		r := &CreateEBSVolumeRequest{
-			Size:       volumeSize,
-			VolumeType: volumeType,
-			IOPS:       iops,
-			Tags:       newTags,
-			KmsKeyID:   d.DefaultKmsKeyID,
-		}
-		volumeID, err = d.ebsService.CreateVolume(r)
-		if err != nil {
-			return err
-		}
-		log.Debugf("Created volume %s from EBS volume %v", id, volumeID)
-		format = true
 	}
 
 	dev, err := d.ebsService.AttachVolume(volumeID, volumeSize)
