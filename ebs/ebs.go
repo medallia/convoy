@@ -563,12 +563,7 @@ func (d *Driver) CreateVolume(req Request) error {
 	if volumeName != "" {
 		log.Debugf("Looking up volume by name %s", volumeName)
 		ebsVolume, err := d.ebsService.GetVolumeByName(volumeName, d.DefaultDCName)
-		if err != nil {
-			//allow NotFound response.
-			if !strings.Contains(err.Error(), "InvalidVolume.NotFound") {
-				return fmt.Errorf("Got an unexpected error when looking up volume %s: %s", volumeName, err.Error())
-			}
-		} else {
+		if err == nil{
 			volumeSize = *ebsVolume.Size * GB
 			volumeID = aws.StringValue(ebsVolume.VolumeId)
 			log.Debugf("Found EBS volume %v with name %v", volumeID, volumeName)
