@@ -149,7 +149,7 @@ func (e *EbsMock) SetMostRecentVolume(volume *ec2.Volume) {
 	e.VolumeMapById[*volume.VolumeId] = volume
 	e.MostRecentVolume = volume
 }
-func (e *EbsMock) GetMostRecentAvailableVolume(string, string, ...*ec2.Filter) (*ec2.Volume, error) {
+func (e *EbsMock) GetMostRecentVolume(string, string, ...*ec2.Filter) (*ec2.Volume, error) {
 	return e.MostRecentVolume, nil
 }
 

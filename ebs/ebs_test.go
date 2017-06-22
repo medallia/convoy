@@ -5,26 +5,26 @@ import (
 	"github.com/aws/aws-sdk-go/service/ec2"
 	. "github.com/rancher/convoy/convoydriver"
 	"github.com/stretchr/testify/require"
+	"math/rand"
 	"os"
 	"sync"
 	"testing"
 	"time"
-	"math/rand"
 )
 
 var driver *Driver
 
 const (
 	MOCK_VOLUME_SIZE_IN_GB = int64(5)
-	MOCK_VOLUME_SIZE = MOCK_VOLUME_SIZE_IN_GB * GB
-	MOCK_VOLUME_ID = "volumeId"
-	MOCK_VOLUME_NAME = "volume-name"
+	MOCK_VOLUME_SIZE       = MOCK_VOLUME_SIZE_IN_GB * GB
+	MOCK_VOLUME_ID         = "volumeId"
+	MOCK_VOLUME_NAME       = "volume-name"
 )
 
-var MOCK_BUILD_RETURN = BuildReturn {
-		volumeSize: MOCK_VOLUME_SIZE,
-		volumeId: MOCK_VOLUME_ID,
-	}
+var MOCK_BUILD_RETURN = BuildReturn{
+	volumeSize: MOCK_VOLUME_SIZE,
+	volumeId:   MOCK_VOLUME_ID,
+}
 
 func TestMain(m *testing.M) {
 	driver = &Driver{
@@ -43,7 +43,7 @@ func getNewTags() map[string]string {
 }
 
 func getVolume(volumeId string) *ec2.Volume {
-	size :=  MOCK_VOLUME_SIZE_IN_GB
+	size := MOCK_VOLUME_SIZE_IN_GB
 	az := "az-1"
 	var t time.Time
 
@@ -53,6 +53,7 @@ func getVolume(volumeId string) *ec2.Volume {
 		AvailabilityZone: &az,
 		CreateTime:       &t,
 		Encrypted:        aws.Bool(true),
+		State:            aws.String(ec2.VolumeStateAvailable),
 	}
 	return volume
 }
@@ -304,6 +305,22 @@ func TestRebuildFromSnapshot(t *testing.T) {
 	require.Equal(t, int64(MOCK_VOLUME_SIZE), buildReturn.volumeSize)
 }
 
+func TestFailureIfVolumeNotAvailable(t *testing.T) {
+	// Setup the mock functions
+	ebsMock := NewEbsMock()
+	ebsMock.AvailabilityZones = []*string{aws.String("az-1"), aws.String("az-2")}
+
+	volume := getVolume(MOCK_VOLUME_ID)
+	volume.State = aws.String(ec2.VolumeStateInUse)
+	ebsMock.VolumeMapById[MOCK_VOLUME_ID] = volume
+	ebsMock.MostRecentVolume = volume
+	driver.ebsService = ebsMock
+
+	// Should exit nicely with original volume values
+	_, err := driver.BuildVolume(MOCK_VOLUME_NAME, MOCK_VOLUME_ID, map[string]string{}, map[string]string{})
+	require.NotNil(t, err)
+}
+
 func TestRandomCombinations(t *testing.T) {
 	rand.Seed(time.Now().Unix())
 	newTags := getNewTags()
@@ -342,12 +359,12 @@ func TestRandomCombinations(t *testing.T) {
 				volume.AvailabilityZone = az
 			}
 			// The cases of the volume.CreatedTime vs snapshot.StartTime
-			// lt, eq, gt 
+			// lt, eq, gt
 			for j := 0; j < 3; j++ {
 				if volume != nil && snapshot != nil {
 					now := time.Now()
 					snapshot.StartTime = aws.Time(now)
-					switch(j) {
+					switch j {
 					case 0:
 						volume.CreateTime = aws.Time(now.Add(-5 * time.Minute))
 					case 1:
@@ -367,8 +384,7 @@ func TestRandomCombinations(t *testing.T) {
 					require.NotNil(t, buildReturn)
 				}
 
-			} 
+			}
 		}
 	}
 }
-

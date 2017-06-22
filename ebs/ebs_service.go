@@ -41,7 +41,7 @@ type EBS interface {
 	AttachVolume(string, int64) (string, error)
 	DetachVolume(string) error
 	GetMostRecentSnapshot(string, string, ...*ec2.Filter) (*ec2.Snapshot, error)
-	GetMostRecentAvailableVolume(string, string, ...*ec2.Filter) (*ec2.Volume, error)
+	GetMostRecentVolume(string, string, ...*ec2.Filter) (*ec2.Volume, error)
 	LaunchSnapshot(string, string, map[string]string) (string, error)
 	GetSnapshots(string, string, ...*ec2.Filter) ([]*ec2.Snapshot, error)
 	GetSnapshotWithRegion(string, string) (*ec2.Snapshot, error)
@@ -647,7 +647,7 @@ func (s *ebsService) GetMostRecentSnapshot(volumeName string, dcName string, fil
 	return snapshots[len(snapshots)-1], nil
 }
 
-func (s *ebsService) GetMostRecentAvailableVolume(volumeName string, dcName string, filters ...*ec2.Filter) (*ec2.Volume, error) {
+func (s *ebsService) GetMostRecentVolume(volumeName string, dcName string, filters ...*ec2.Filter) (*ec2.Volume, error) {
 	// We always need to specify the name, dc name, and that the snapshot is complete. If the AZ has truly crashed, then the snapshot may never complete
 	volumeInput := &ec2.DescribeVolumesInput{
 		Filters: []*ec2.Filter{
@@ -663,16 +663,10 @@ func (s *ebsService) GetMostRecentAvailableVolume(volumeName string, dcName stri
 					aws.String(dcName),
 				},
 			},
-			&ec2.Filter{
-				Name: aws.String("status"),
-				Values: []*string{
-					aws.String("available"),
-				},
-			},
 		},
 	}
 	volumeInput.Filters = append(volumeInput.Filters, filters...)
-	log.Debugf("GetMostRecentAvailableVolume API filters Name=%v DCName=%v Status=available", volumeName, dcName)
+	log.Debugf("GetMostRecentVolume API filters Name=%v DCName=%v Status=available", volumeName, dcName)
 	req, volOutput := s.ec2Client.DescribeVolumesRequest(volumeInput)
 	if err := req.Send(); err != nil {
 		return nil, util.NewConvoyDriverErr(err, util.ErrVolumeNotAvailableCode)
