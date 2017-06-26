@@ -554,7 +554,7 @@ func (d *Driver) BuildVolume(volumeName string, volumeID string, opts map[string
 	}
 
 	// Need to specify the volume and the filter for availability-zones
-	mostRecentVolume, err := d.ebsService.GetMostRecentAvailableVolume(
+	mostRecentVolume, err := d.ebsService.GetMostRecentVolume(
 		volumeName,
 		d.DefaultDCName,
 		&ec2.Filter{
@@ -564,6 +564,10 @@ func (d *Driver) BuildVolume(volumeName string, volumeID string, opts map[string
 	)
 	if err != nil {
 		return nil, err
+	}
+
+	if mostRecentVolume != nil && *mostRecentVolume.State != ec2.VolumeStateAvailable {
+		return nil, util.NewConvoyDriverErr(fmt.Errorf("Volume=%v is in an unexpected state=%v expected state=%v", volumeID, mostRecentVolume.State, ec2.VolumeStateAvailable), util.ErrVolumeExistsCode)
 	}
 
 	mostRecentSnapshot, err := d.ebsService.GetMostRecentSnapshot(volumeName, d.DefaultDCName)
