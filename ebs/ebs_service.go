@@ -666,7 +666,7 @@ func (s *ebsService) GetMostRecentVolume(volumeName string, dcName string, filte
 		},
 	}
 	volumeInput.Filters = append(volumeInput.Filters, filters...)
-	log.Debugf("GetMostRecentVolume API filters Name=%v DCName=%v Status=available", volumeName, dcName)
+	log.Debugf("GetMostRecentVolume API filters Name=%v DCName=%v", volumeName, dcName)
 	req, volOutput := s.ec2Client.DescribeVolumesRequest(volumeInput)
 	if err := req.Send(); err != nil {
 		return nil, util.NewConvoyDriverErr(err, util.ErrVolumeNotAvailableCode)

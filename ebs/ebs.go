@@ -567,7 +567,7 @@ func (d *Driver) BuildVolume(volumeName string, volumeID string, opts map[string
 	}
 
 	if mostRecentVolume != nil && *mostRecentVolume.State != ec2.VolumeStateAvailable {
-		return nil, util.NewConvoyDriverErr(fmt.Errorf("Volume=%v is in an unexpected state=%v expected state=%v", volumeID, mostRecentVolume.State, ec2.VolumeStateAvailable), util.ErrVolumeExistsCode)
+		return nil, util.NewConvoyDriverErr(fmt.Errorf("Volume (id=%v, name=%v) is in an unexpected state=%v expected state=%v", *mostRecentVolume.VolumeId, volumeName, *mostRecentVolume.State, ec2.VolumeStateAvailable), util.ErrVolumeExistsCode)
 	}
 
 	mostRecentSnapshot, err := d.ebsService.GetMostRecentSnapshot(volumeName, d.DefaultDCName)
