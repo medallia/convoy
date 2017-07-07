@@ -751,9 +751,13 @@ func (d *Driver) CreateVolume(req Request) error {
 		}
 	}
 
-	fsType := d.DefaultFSType
-	if typ, ok := opts[OPT_VOLUME_FS_TYPE]; ok {
-		fsType = typ
+	//EBS Volume FS type
+	fsType := opts[OPT_VOLUME_FS_TYPE]
+	if fsType == "" {
+		log.Debugf("FS type not specified in request, setting to default=%v", d.DefaultFSType)
+		fsType = d.DefaultFSType
+	} else {
+		log.Debugf("Found FS type=%v in request", fsType)
 	}
 	if needsFS && d.AutoFormat {
 		log.Debugf("Formatting device=%v with filesystem type=%v", volume.Device, fsType)
