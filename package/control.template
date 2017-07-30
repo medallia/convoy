@@ -1,0 +1,8 @@
+Package: template-renderer
+Section: admin
+Priority: optional
+Version: VERSION
+Architecture: amd64
+Depends:
+Maintainer: cif@medallia.com
+Description: Docker volume driver

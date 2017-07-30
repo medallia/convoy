@@ -761,7 +761,7 @@ func (d *Driver) CreateVolume(req Request) error {
 	}
 	if needsFS && d.AutoFormat {
 		log.Debugf("Formatting device=%v with filesystem type=%v", volume.Device, fsType)
-		if err := fs.FormatDevice(volume.Device, fsType); err != nil {
+		if err := fs.FormatDevice(volume.Device, fsType, ""); err != nil {
 			return err
 		}
 	}

@@ -17,6 +17,17 @@ mkdir -p dist/artifacts
 cp /usr/local/bin/convoy-pdata_tools bin/
 cp -f bin/* build/${CONVOY_CONTENT}
 
+mkdir -p package/convoy/usr/local/bin
+cp bin/convoy package/convoy/usr/local/bin/convoy
+TAG=$(git describe --abbrev=0 --tags | cut -c 2-)
+
+cd package
+cp control.template control
+sed "s/VERSION/${TAG}/g" -i control
+fpm -f -s dir -t deb -C convoy -n convoy -v ${TAG} -p ../dist
+fpm -f -s dir -t rpm -C convoy -n convoy -v ${TAG} -p ../dist
+cd ..
+
 cd build
 
 sha1sum -b $(find ${CONVOY_CONTENT} -type f) > ${CONVOY_CONTENT}/SHA1SUMS

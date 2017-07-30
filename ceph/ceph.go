@@ -1,13 +1,11 @@
 package ceph
 
 import (
+	"encoding/json"
 	"fmt"
 	"os/exec"
-	"encoding/json"
 	"strconv"
-	// "strings"
 	"sync"
-	// "syscall"
 
 	"github.com/Sirupsen/logrus"
 
@@ -21,24 +19,33 @@ var (
 )
 
 const (
-	driverName        = "ceph"
+	driverName = "ceph"
 
 	cephDefaultVolumeSize = "ceph.defaultvolumesize"
-	cephDefaultEncrypted = "ceph.defaultencrypted"
+	cephDefaultEncrypted  = "ceph.defaultencrypted"
+
+	cephDefaultFSType = "ceph.defaultfilesystem"
+	cephDefaultFSOptions = "ceph.defaultfilesystemoptions"
 
 	defaultVolumeSize = "10G"
-	defaultEncrypted = "false" // Currently unused, but may be supported in future
+	defaultEncrypted  = "false" // Currently unused, but may be supported in future
+
+	defaultFSType     = "ext4"
+	defaultFSOptions  = ""
 )
 
 type Driver struct {
-	mutex      *sync.RWMutex
+	mutex   *sync.RWMutex
 	volumes map[string]*Volume
 	*Device
 }
 
 type Device struct {
+	Root              string
 	DefaultVolumeSize int64
 	DefaultEncrypted  bool
+	DefaultFSType     string
+	DefaultFSOptions  string
 }
 
 func (d *Driver) VolumeOps() (VolumeOperations, error) {
@@ -53,7 +60,6 @@ func (Driver) BackupOps() (BackupOperations, error) {
 	return nil, fmt.Errorf("Backup ops not supported")
 }
 
-// TODO
 func (d *Driver) Info() (map[string]string, error) {
 	return map[string]string{
 		"name": d.Name(),
@@ -83,16 +89,16 @@ func (d *Driver) createVolume(req Request) {
 	v, exists := d.volumes[req.Name]
 	if !exists {
 		v = &Volume{
-			Name:                 req.Name,
-			Device:     "", // Will be set by Mount()
-			LUKSDevice: "", // Will be set by Mount()
+			Name:             req.Name,
+			Device:           "", // Will be set by Mount()
+			LUKSDevice:       "", // Will be set by Mount()
+			MountPointPrefix: d.Root,
 		}
 		d.volumes[req.Name] = v
 	}
 }
 
 func (d *Driver) DeleteVolume(req Request) error {
-	log.Infof("\n\nDeleteVolume: %+v\n\n", req)
 	currentImageMap, err := d.getCurrentVolumes()
 	if err != nil {
 		return err
@@ -103,7 +109,29 @@ func (d *Driver) DeleteVolume(req Request) error {
 	}
 	if _, exists := d.volumes[req.Name]; exists {
 		delete(d.volumes, req.Name)
-	} 
+	}
+	return nil
+}
+
+func (d *Driver) checkDevice(device string) error {
+	_, err := fs.Detect(device)
+	if err == fs.ErrNoFilesystemDetected {
+		if err = fs.FormatDevice(device, d.DefaultFSType, d.DefaultFSOptions); err != nil {
+			return err
+		}
+		log.Debugf("Formatted device=%v with fs=%v and options=%v",device, d.DefaultFSType, d.DefaultFSOptions)
+	} else if err != nil {
+		return err
+	}
+	// Resizing of LUKS is not currently supported
+	if err = fs.Resize(device); err != nil {
+		return err
+	}
+	log.Debugf("Resized device=%v if necessary", device)
+	if err = fs.Check(device); err != nil {
+		return err
+	}
+	log.Debugf("Checked FS integrity on device=%v", device)
 	return nil
 }
 
@@ -126,28 +154,22 @@ func (d *Driver) MountVolume(req Request) (string, error) {
 		}
 	}()
 
-	fsType, err := volume.detectFS()
-	if err == fs.ErrNoFilesystemDetected {
-		if err = volume.createFS(); err != nil {
-			fsType = "ext4"
-			return "", err
-		}
-	} else if err != nil {
+	var mountDevice string // Could change due to LUKS
+	fsType, err := fs.Detect(volume.Device)
+	if err != nil && err != fs.ErrNoFilesystemDetected {
 		return "", err
 	}
 	if fsType == cryptoLuksFsType {
-		if err = volume.LUKSEncyption(); err != nil {
+		if err = volume.LUKSEncryption(); err != nil {
 			return "", err
 		}
+		mountDevice = volume.LUKSDevice
+	} else {
+		mountDevice = volume.Device
 	}
-
-	if err = volume.checkFS(); err != nil {
+	if err = d.checkDevice(mountDevice); err != nil {
 		return "", err
 	}
-	if err = volume.resizeFS(); err != nil {
-		return "", err
-	}
-
 	// Mount the volume
 	mountPoint, err := util.VolumeMount(volume, "", false)
 	return mountPoint, err
@@ -163,7 +185,7 @@ func (d *Driver) UmountVolume(req Request) error {
 		return err
 	}
 	// Unmap the volume
-	if err := volume.Unmount(req.Name); err != nil {
+	if err := volume.Unmap(req.Name); err != nil {
 		return err
 	}
 	return nil
@@ -178,9 +200,9 @@ func (d *Driver) MountPoint(req Request) (string, error) {
 }
 
 type RBDShowmapped struct {
-	Pool string
-	Name string
-	Snap string
+	Pool   string
+	Name   string
+	Snap   string
 	Device string
 }
 
@@ -219,25 +241,30 @@ func (d *Driver) ListVolume(opts map[string]string) (map[string]map[string]strin
 }
 
 func Init(root string, config map[string]string) (ConvoyDriver, error) {
-	// Maybe initialize stuff with the config?
-	device, err := getDefaultDevice(config)
+	device, err := getDefaultDevice(root, config)
 	if err != nil {
 		return nil, err
 	}
 	d := &Driver{
-		mutex:      &sync.RWMutex{},
+		mutex:   &sync.RWMutex{},
 		volumes: make(map[string]*Volume),
-		Device: device,
+		Device:  device,
 	}
 	return d, nil
 }
 
-func getDefaultDevice(config map[string]string) (*Device, error) {
+func getDefaultDevice(root string, config map[string]string) (*Device, error) {
 	if config[cephDefaultEncrypted] == "" {
 		config[cephDefaultEncrypted] = defaultEncrypted
 	}
 	if config[cephDefaultVolumeSize] == "" {
 		config[cephDefaultVolumeSize] = defaultVolumeSize
+	}
+	if config[cephDefaultFSType] == "" {
+		config[cephDefaultFSType] = defaultFSType
+	}
+	if config[cephDefaultFSOptions] == "" {
+		config[cephDefaultFSOptions] = defaultFSOptions
 	}
 	size, err := util.ParseSize(config[cephDefaultVolumeSize])
 	if err != nil {
@@ -248,9 +275,13 @@ func getDefaultDevice(config map[string]string) (*Device, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	dev := &Device{
 		DefaultVolumeSize: size,
 		DefaultEncrypted:  encrypted,
+		DefaultFSType: config[cephDefaultFSType],
+		DefaultFSOptions: config[cephDefaultFSOptions],
+		Root:              root,
 	}
 	return dev, nil
 }

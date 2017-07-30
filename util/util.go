@@ -103,11 +103,11 @@ func UnlockFile(f *os.File) error {
 func SliceToMap(slices []string) map[string]string {
 	result := map[string]string{}
 	for _, v := range slices {
-		pair := strings.Split(v, "=")
-		if len(pair) != 2 {
+		firstEqualsIdx := strings.Index(v, "=")
+		if firstEqualsIdx == -1 || firstEqualsIdx == len(v) - 1 {
 			return nil
 		}
-		result[pair[0]] = pair[1]
+		result[v[:firstEqualsIdx]] = v[firstEqualsIdx+1:]
 	}
 	return result
 }

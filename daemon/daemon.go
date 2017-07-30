@@ -235,6 +235,7 @@ func (s *daemon) initDrivers(driverOpts map[string]string) error {
 			"root":           s.Root,
 			"driver_opts":    driverOpts,
 		}).Debug()
+		log.Printf("\n\n%+v\n\n", driverOpts)
 
 		driver, err := GetDriver(driverName, s.Root, driverOpts)
 		if err != nil {
@@ -314,6 +315,10 @@ func Start(sockFile string, c *cli.Context) error {
 
 	// driverOpts would be ignored by Convoy Drivers if config already exists
 	driverOpts := util.SliceToMap(c.StringSlice("driver-opts"))
+	if driverOpts == nil {
+		log.Fatalf("Driver-opts are not correctly formatted")
+	}
+	log.Printf("\n\n High level slice: %+v \n opts %+v \n\n", c.StringSlice("driver-opts"), driverOpts)
 	if err := s.initDrivers(driverOpts); err != nil {
 		return err
 	}

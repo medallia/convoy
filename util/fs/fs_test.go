@@ -46,7 +46,7 @@ func TestDeviceFormatter(t *testing.T) {
 			}
 
 			// Format it.
-			if err := FormatDevice(fakeDevicePath, targetFSType); err != nil {
+			if err := FormatDevice(fakeDevicePath, targetFSType, ""); err != nil {
 				t.Fatalf("Unexpected error formatting device=%v with fsType=%v: %s", fakeDevicePath, targetFSType, err)
 			}
 		}()
@@ -102,7 +102,7 @@ func TestFSDetectorResize(t *testing.T) {
 			}
 
 			// Format it.
-			if err := FormatDevice(fakeDevicePath, targetFSType); err != nil {
+			if err := FormatDevice(fakeDevicePath, targetFSType, ""); err != nil {
 				t.Fatalf("Unexpected error formatting device=%v: %s", fakeDevicePath, err)
 			}
 
