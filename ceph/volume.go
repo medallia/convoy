@@ -162,46 +162,6 @@ func (v *Volume) LUKSEncryption() error {
 	return nil
 }
 
-
-
-// func (v *Volume) detectFS() (string, error) {
-// 	log.Debugf("Trying to detect fs on device='%v'", v.Device)
-// 	fsType, err := fs.Detect(v.Device)
-// 	if err == nil {
-// 		log.Debugf("Detected fstype='%v' on device='%v'", fsType, v.Device)
-// 	}
-// 	return fsType, err
-// }
-
-// func (v *Volume) createFS() error {
-// 	cmd := exec.Command("mkfs.ext4", "-m0", "-E", "nodiscard,lazy_itable_init=0,lazy_journal_init=0,packed_meta_blocks=1", v.Device)
-// 	log.Infof("Creating ext4 filesystem in newly created Ceph volume='%s' (device=%s)", v.Name, v.Device)
-// 	if err := cmd.Run(); err != nil {
-// 		log.Errorf("Failed to create ext4 filesystem in newly created Ceph volume='%s' (device=%s) - error=%s", v.Name, v.Device, err)
-// 		return err
-// 	}
-// 	return nil
-// }
-
-// func (v *Volume) resizeFS() error {
-// 	log.Debugf("Ensuring filesystem size and device=%v size match", v.Device)
-// 	if err := fs.Resize(v.Device); err != nil {
-// 		log.Debugf("Syncing device=%s sizes - error=%s", v.Device, err)
-// 		return err
-// 	}
-// 	return nil
-// }
-
-// func (v *Volume) checkFS() error {
-// 	fsckCmd, err := exec.Command("fsck", "-a", v.Device).Output()
-// 	if err != nil {
-// 		log.Errorf("Failed to check filesystem in device=%s - error=%s", v.Name, err)
-// 		return err
-// 	}
-// 	log.Infof("Checked filesystem in device=%s: cmd=%s", v.Name, fsckCmd)
-// 	return nil
-// }
-
 func (v *Volume) Unmap(id string) error {
 	v.m.Lock()
 	defer v.m.Unlock()
