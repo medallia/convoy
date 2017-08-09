@@ -94,9 +94,6 @@ func (d *Driver) createVolume(req Request) error {
 
 // We never need to remove a NFS volume from the internal state
 func (d *Driver) DeleteVolume(req Request) error {
-	// if _, exists := d.volumes[req.Name]; exists {
-	// 	delete(d.volumes, req.Name)
-	// }
 	return nil
 }
 
@@ -123,13 +120,6 @@ func (d *Driver) MountVolume(req Request) (string, error) {
 }
 
 func (d *Driver) UmountVolume(req Request) error {
-	// volume, exists := d.volumes[req.Name]
-	// if !exists {
-	// 	return fmt.Errorf("Failed Unmount because %v does not exist in internal state", req.Name)
-	// }
-	// if err := util.VolumeUmount(volume, "-l"); err != nil {
-	// 	return fmt.Errorf("Failed to unmount nfs device=%s from mount=%s - error=%v", volume.Name, volume.MountPoint, err)
-	// }
 	return nil
 }
 
