@@ -2,8 +2,10 @@ package daemon
 
 import (
 	"fmt"
+	"net"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/rancher/convoy/api"
@@ -99,13 +101,18 @@ func (s *daemon) processVolumeCreate(request *api.VolumeCreateRequest) (*Volume,
 	volumeName := request.Name
 	driverName := request.DriverName
 
-	var err error
 	if volumeName == "" {
-		volumeName, err = s.generateName()
-		if err != nil {
-			return nil, err
+		return nil, fmt.Errorf("Volume name must be specified")
+	}
+
+	if possibleNFSMountIdx := strings.Index(request.Name, "//"); possibleNFSMountIdx != -1 && possibleNFSMountIdx != len(request.Name) -1 {
+		if ip := net.ParseIP(request.Name[:possibleNFSMountIdx]); ip != nil {
+			driverName = "nfs"
 		}
-	} else {
+	}
+
+
+	if driverName != "nfs" {
 		exists, err := s.volumeExists(volumeName)
 		if err != nil {
 			return nil, fmt.Errorf("Error occurred while checking if volume %v exists: %v", volumeName, err)
@@ -115,9 +122,13 @@ func (s *daemon) processVolumeCreate(request *api.VolumeCreateRequest) (*Volume,
 		}
 	}
 
+	// if src, err := os.Stat(request.Name); err == nil && src.IsDir() {
+	// 	driverName = "host"
+	// }
 	if driverName == "" {
 		driverName = s.DefaultDriver
 	}
+	log.Infof("Volume=%v will be handled by driver=%v", request.Name, driverName)
 	driver, err := s.getDriver(driverName)
 	if err != nil {
 		return nil, err
