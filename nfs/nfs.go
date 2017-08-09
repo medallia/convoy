@@ -3,10 +3,10 @@ package nfs
 import (
 	b64 "encoding/base64"
 	"fmt"
-	"strings"
-	"sync"
 	"io/ioutil"
 	"os"
+	"strings"
+	"sync"
 
 	"github.com/Sirupsen/logrus"
 
@@ -21,7 +21,7 @@ var (
 )
 
 const (
-	driverName = "nfs"
+	driverName             = "nfs"
 	nfsDefaultMountOptions = "nfs.defaultmountoptions"
 
 	defaultMountOptions = ""
@@ -36,8 +36,8 @@ type Driver struct {
 }
 
 type Device struct {
-	Root              string
-	DefaultMountOptions  []string
+	Root                string
+	DefaultMountOptions []string
 }
 
 func (d *Driver) VolumeOps() (VolumeOperations, error) {
@@ -84,8 +84,8 @@ func (d *Driver) createVolume(req Request) error {
 			return err
 		}
 		v = &Volume{
-			Name:             req.Name,
-			MountPoint: 	  b64.StdEncoding.EncodeToString([]byte(dirName)),
+			Name:       req.Name,
+			MountPoint: b64.StdEncoding.EncodeToString([]byte(dirName)),
 		}
 		d.volumes[req.Name] = v
 	}
@@ -110,8 +110,8 @@ func (d *Driver) MountVolume(req Request) (string, error) {
 		return "", err
 	}
 	v := &Volume{
-		Name:             req.Name,
-		MountPoint: 	  dirName,
+		Name:       req.Name,
+		MountPoint: dirName,
 	}
 	d.volumes[req.Name] = v
 	mountPoint, err := util.VolumeMount(v, dirName, false)
@@ -171,7 +171,7 @@ func getDefaultDevice(root string, config map[string]string) (*Device, error) {
 	mountOptionsSlice := strings.Split(config[defaultMountOptions], " ")
 	dev := &Device{
 		DefaultMountOptions: mountOptionsSlice,
-		Root:              root,
+		Root:                root,
 	}
 	return dev, nil
 }

@@ -24,14 +24,14 @@ const (
 	cephDefaultVolumeSize = "ceph.defaultvolumesize"
 	cephDefaultEncrypted  = "ceph.defaultencrypted"
 
-	cephDefaultFSType = "ceph.defaultfilesystem"
+	cephDefaultFSType    = "ceph.defaultfilesystem"
 	cephDefaultFSOptions = "ceph.defaultfilesystemoptions"
 
 	defaultVolumeSize = "10G"
 	defaultEncrypted  = "false" // Currently unused, but may be supported in future
 
-	defaultFSType     = "ext4"
-	defaultFSOptions  = ""
+	defaultFSType    = "ext4"
+	defaultFSOptions = ""
 )
 
 type Driver struct {
@@ -119,7 +119,7 @@ func (d *Driver) checkDevice(device string) error {
 		if err = fs.FormatDevice(device, d.DefaultFSType, d.DefaultFSOptions); err != nil {
 			return err
 		}
-		log.Debugf("Formatted device=%v with fs=%v and options=%v",device, d.DefaultFSType, d.DefaultFSOptions)
+		log.Debugf("Formatted device=%v with fs=%v and options=%v", device, d.DefaultFSType, d.DefaultFSOptions)
 	} else if err != nil {
 		return err
 	}
@@ -279,8 +279,8 @@ func getDefaultDevice(root string, config map[string]string) (*Device, error) {
 	dev := &Device{
 		DefaultVolumeSize: size,
 		DefaultEncrypted:  encrypted,
-		DefaultFSType: config[cephDefaultFSType],
-		DefaultFSOptions: config[cephDefaultFSOptions],
+		DefaultFSType:     config[cephDefaultFSType],
+		DefaultFSOptions:  config[cephDefaultFSOptions],
 		Root:              root,
 	}
 	return dev, nil

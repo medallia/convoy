@@ -1,4 +1,4 @@
-Package: template-renderer
+Package: Convoy
 Section: admin
 Priority: optional
 Version: VERSION

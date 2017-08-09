@@ -105,12 +105,11 @@ func (s *daemon) processVolumeCreate(request *api.VolumeCreateRequest) (*Volume,
 		return nil, fmt.Errorf("Volume name must be specified")
 	}
 
-	if possibleNFSMountIdx := strings.Index(request.Name, "//"); possibleNFSMountIdx != -1 && possibleNFSMountIdx != len(request.Name) -1 {
+	if possibleNFSMountIdx := strings.Index(request.Name, "//"); possibleNFSMountIdx != -1 && possibleNFSMountIdx != len(request.Name)-1 {
 		if ip := net.ParseIP(request.Name[:possibleNFSMountIdx]); ip != nil {
 			driverName = "nfs"
 		}
 	}
-
 
 	if driverName != "nfs" {
 		exists, err := s.volumeExists(volumeName)
