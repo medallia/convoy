@@ -131,7 +131,7 @@ func (v *Volume) Map(id string, sizeMB int64) (Device string, returnedError erro
 	return v.Device, nil
 }
 
-func (v *Volume) LUKSEncryption() error {
+func (v *Volume) LUKSOpen() error {
 	luksDevMapperName := getLuksDeviceMapperName(v.Name)
 	cmd := exec.Command("cryptsetup", "luksOpen", "--allow-discards", "--key-file=-", v.Device, luksDevMapperName)
 	stdin, err := cmd.StdinPipe()
@@ -145,9 +145,9 @@ func (v *Volume) LUKSEncryption() error {
 		return err
 	}
 
-	key, err := getLuksKey(v.Name)
+	key, err := getLuksKey(luksDevMapperName)
 	if err != nil {
-		log.Errorf("Failed to luksOpen Ceph volume='%s' (device=%s) - error=%s", v.Name, v.Device, err)
+		log.Errorf("Failed to luksOpen Ceph volume='%s' (device=%s) - error=%s", luksDevMapperName, v.Device, err)
 		return err
 	}
 

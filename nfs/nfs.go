@@ -12,8 +12,6 @@ import (
 
 	. "github.com/rancher/convoy/convoydriver"
 	"github.com/rancher/convoy/util"
-	// "github.com/rancher/convoy/util/fs"
-	// "strings"
 )
 
 var (
@@ -26,7 +24,7 @@ const (
 
 	defaultMountOptions = ""
 
-	NFS_MOUNTS_DIRECTORY_PERMISSIONS = 0755
+	nfsMountsDirectoryPermissions = 0755
 )
 
 type Driver struct {
@@ -216,5 +214,5 @@ func ensureDirectoryExists(dirName string) error {
 	if !os.IsNotExist(err) {
 		return err
 	}
-	return os.MkdirAll(dirName, NFS_MOUNTS_DIRECTORY_PERMISSIONS)
+	return os.MkdirAll(dirName, nfsMountsDirectoryPermissions)
 }

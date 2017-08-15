@@ -99,6 +99,8 @@ func (d *Driver) createVolume(req Request) {
 }
 
 func (d *Driver) DeleteVolume(req Request) error {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
 	currentImageMap, err := d.getCurrentVolumes()
 	if err != nil {
 		return err
@@ -160,7 +162,7 @@ func (d *Driver) MountVolume(req Request) (string, error) {
 		return "", err
 	}
 	if fsType == cryptoLuksFsType {
-		if err = volume.LUKSEncryption(); err != nil {
+		if err = volume.LUKSOpen(); err != nil {
 			return "", err
 		}
 		mountDevice = volume.LUKSDevice
