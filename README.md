@@ -71,14 +71,14 @@ You should see the recovered file ```/res1/foo```.
 ## Installation
 Ensure you have Docker 1.8 or above installed.
 
-Download latest version of [convoy](https://github.com/rancher/convoy/releases/download/v0.5.0/convoy.tar.gz) and unzip it. Put the binaries in a directory in the execution ```$PATH``` of sudo and root users (e.g. /usr/local/bin).
-```
+Download latest version of [convoy](https://github.com/medallia/convoy/releases/) and untar it. Put the binaries in a directory in the execution `$PATH` of sudo and root users (e.g. /usr/local/bin).
+```bash
 wget https://github.com/rancher/convoy/releases/download/v0.5.0/convoy.tar.gz
 tar xvf convoy.tar.gz
 sudo cp convoy/convoy convoy/convoy-pdata_tools /usr/local/bin/
 ```
 Run the following commands to setup the Convoy volume plugin for Docker:
-```
+```bash
 sudo mkdir -p /etc/docker/plugins/
 sudo bash -c 'echo "unix:///var/run/convoy/convoy.sock" > /etc/docker/plugins/convoy.spec'
 ```
@@ -91,7 +91,7 @@ You need to pass different arguments to convoy daemon depending on the choice of
 For production environment, it's recommended to attach a new empty block device to the host Convoy running on for using Device Mapper driver. Then you can make two partitions out of the device using [`dm_dev_partition.sh`](https://raw.githubusercontent.com/rancher/convoy/master/tools/dm_dev_partition.sh) to get two block devices fitting for Device Mapper driver. See [Device Mapper Partition Helper](https://github.com/rancher/convoy/blob/master/docs/devicemapper.md#device-mapper-partition-helper) for more details.
 
 Device Mapper requires two block devices to create storage pool for all volumes and snapshots. Assuming you have two devices created, one data device called `/dev/convoy-vg/data` and the other metadata device called `/dev/convoy-vg/metadata`. You run the following command to start the Convoy daemon:
-```
+```bash
 sudo convoy daemon --drivers devicemapper --driver-opts dm.datadev=/dev/convoy-vg/data --driver-opts dm.metadatadev=/dev/convoy-vg/metadata
 ```
 * A default Device Mapper volume size is 100G. You can override it with the `---driver-opts dm.defaultvolumesize` option.
@@ -99,24 +99,24 @@ sudo convoy daemon --drivers devicemapper --driver-opts dm.datadev=/dev/convoy-v
 
 #### NFS
 First, mount the NFS share to the root directory used to store volumes. Substitute `<vfs_path>` to the appropriate directory of your choice:
-```
+```bash
 sudo mkdir <vfs_path>
 sudo mount -t nfs <nfs_server>:/path <vfs_path>
 ```
 The NFS-based Convoy daemon can be started as follows:
-```
+```bash
 sudo convoy daemon --drivers vfs --driver-opts vfs.path=<vfs_path>
 ```
 
 #### EBS
 Make sure you're running on EC2 instance, and has already [configured AWS credentials](https://github.com/aws/aws-sdk-go#configuring-credentials) correctly.
-```
+```bash
 sudo convoy daemon --drivers ebs
 ```
 
 #### DigitalOcean
 Make sure you're running on a DigitalOcean Droplet, and that you have the `DO_TOKEN` environment variable set with your key
-```
+```bash
 sudo convoy daemon --drivers digitalocean
 ```
 
@@ -124,23 +124,23 @@ sudo convoy daemon --drivers digitalocean
 #### Create a Volume
 
 Volumes can be created using the `convoy create` command:
-```
+```bash
 sudo convoy create volume_name
 ```
 * Device Mapper: Default volume size is 100G. `--size` [option](https://github.com/rancher/convoy/blob/master/docs/devicemapper.md#create) is supported.
 * EBS: Default volume size is 4G. `--size` and [some other options](https://github.com/rancher/convoy/blob/master/docs/ebs.md#create) are supported.
 
 We can also create a volume using the [`docker run`](https://github.com/rancher/convoy/blob/master/docs/docker.md#create-container) command. If the volume does not yet exist, a new volume will be created. Otherwise the existing volume will be used.
-```
+```bash
 sudo docker run -it -v test_volume:/test --volume-driver=convoy ubuntu
 ```
 
 #### Delete a Volume
-```
+```bash
 sudo convoy delete <volume_name>
 ```
 or
-```
+```bash
 sudo docker rm -v <container_name>
 ```
 * NFS, EBS and DigitalOcean: The `-r/--reference` option instructs the `convoy delete` command to only delete the reference to the volume from the current host and leave the underlying files on [NFS server](https://github.com/rancher/convoy/blob/master/docs/vfs.md#delete) or [EBS volume](https://github.com/rancher/convoy/blob/master/docs/ebs.md#delete) unchanged. This is useful when the volume need to be reused later.
@@ -148,29 +148,29 @@ sudo docker rm -v <container_name>
 * If you use `--rm` with `docker run`, all the volumes associated with the container would be deleted in the same way as executing `docker rm -v` when exit. See [Docker run reference](https://docs.docker.com/engine/reference/run/) for details.
 
 #### List and Inspect a Volume
-```
+```bash
 sudo convoy list
 sudo convoy inspect vol1
 ```
 
 #### Take Snapshot of a Volume
-```
+```bash
 sudo convoy snapshot create vol1 --name snap1vol1
 ```
 
 #### Delete a Snapshot
-```
+```bash
 sudo convoy snapshot delete snap1vol1
 ```
 * Device Mapper: please make sure you keep [the latest backed-up snapshot](https://github.com/rancher/convoy/blob/master/docs/devicemapper.md#backup-create) for the same volume available to enable incremental backup mechanism, since Convoy need it to calculate the differences between snapshots.
 
 #### Backup a Snapshot
 * Device Mapper or VFS: We can backup a snapshot to S3 object store or an NFS mount/local directory:
-```
+```bash
 sudo convoy backup create snap1vol1 --dest s3://backup-bucket@us-west-2/
 ```
 or
-```
+```bash
 sudo convoy backup create snap1vol1 --dest vfs:///opt/backup/
 ```
 
@@ -183,14 +183,14 @@ If you're using S3, please make sure you have AWS credential ready either at ```
 * EBS: `--dest` is [not needed](https://github.com/rancher/convoy/blob/master/docs/ebs.md#backup-create). Just do `convoy backup create snap1vol1`.
 
 #### Restore a Volume from Backup
-```
+```bash
 sudo convoy create res1 --backup <url>
 ```
 * EBS: Current host must be in the [same region](https://github.com/rancher/convoy/blob/master/docs/ebs.md#create) of backup to be restored.
 
 #### Mount a Restored Volume into a Docker Container
 We can use the standard `docker run` command to mount the restored volume into a Docker container:
-```
+```bash
 sudo docker run -it -v res1:/res1 --volume-driver convoy ubuntu
 ```
 
