@@ -802,8 +802,9 @@ func (d *Driver) DeleteVolume(req Request) error {
 		"DetachedAt":   time.Now().String(),
 	}
 	err := d.UpdateTags(volume.EBSID, detachTags)
+	// Do not fail when adding tracking tags, this should not be critical
 	if err != nil {
-		return err
+		log.WithField("volume-id", id).Warnf("failed adding detach tracking tags to volume: %v", err)
 	}
 
 	// Don't delete as per Medallia design, just remove reference

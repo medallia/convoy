@@ -91,8 +91,11 @@ func (s *daemon) createDockerVolume(request *pluginRequest) (*Volume, error) {
 
 func (s *daemon) getDockerVolume(r *http.Request) (*Volume, *pluginRequest, error) {
 	request, err := convertToPluginRequest(r)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to convert request to pluginRequest: %v", err)
+	}
 	request.Opts = make(map[string]string)
-	//log.Debugf("Request obj is %v.\n Name:%s\n Opts:%v", request, request.Name, request.Opts)
+	log.Debugf("Request obj is %v. Name:%s - Opts:%v", request, request.Name, request.Opts)
 
 	//This check parses the name to check if there is a need to pick the size from the name.
 	sizeRe := regexp.MustCompile(`^(.+)~([1-9]+[0-9]*[GT])$`)
@@ -107,9 +110,6 @@ func (s *daemon) getDockerVolume(r *http.Request) (*Volume, *pluginRequest, erro
 		request.Name = vsName
 	}
 
-	if err != nil {
-		return nil, nil, err
-	}
 	volume := s.getVolume(request.Name)
 	return volume, request, nil
 }
