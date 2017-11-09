@@ -562,6 +562,7 @@ func (s *daemon) getDriverForVolume(id string) (ConvoyDriver, error) {
 				driver.Name()))
 		}
 		if vol, _ := volOps.GetVolumeInfo(id); vol == nil {
+			log.WithField("id", id).WithField("driver", driver.Name()).Debugf("No volume found for driver")
 			continue
 		}
 		return driver, nil

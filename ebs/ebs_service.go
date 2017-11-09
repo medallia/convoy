@@ -146,7 +146,7 @@ func NewEBSService() (*ebsService, error) {
 		return nil, err
 	}
 
-	config := aws.NewConfig().WithRegion(s.Region)
+	config := aws.NewConfig().WithRegion(s.Region).WithMaxRetries(10)
 	s.ec2Client = ec2.New(session.New(), config)
 	return s, nil
 }
@@ -390,13 +390,35 @@ func (s *ebsService) GetVolume(volumeID string) (*ec2.Volume, error) {
 	if err != nil {
 		return nil, parseAwsError(err)
 	}
-	if len(volumes.Volumes) != 1 {
+	volCount := len(volumes.Volumes)
+	if volCount != 1 {
+		log.WithField("fn", "GetVolume").
+			WithField("volume-id", volumeID).
+			Debugf("Found %d volumes for id", volCount)
 		return nil, util.NewConvoyDriverErr(fmt.Errorf("Cannot find volume=%v", volumeID), util.ErrVolumeNotFoundCode)
 	}
 	return volumes.Volumes[0], nil
 }
 
+func volumesToString(volumes []*ec2.Volume) string {
+	var volStrings []string
+	for _, v := range volumes {
+		volStrings = append(
+			volStrings,
+			fmt.Sprintf(
+				"ID: %s, AZ: %s, Size: %d, SnapID: %s",
+				aws.StringValue(v.VolumeId),
+				aws.StringValue(v.AvailabilityZone),
+				aws.Int64Value(v.Size),
+				aws.StringValue(v.SnapshotId),
+			),
+		)
+	}
+	return strings.Join(volStrings, " | ")
+}
+
 func (s *ebsService) GetVolumeByName(volumeName, dcName string) (*ec2.Volume, error) {
+	sleepBeforeRetry()
 	params := &ec2.DescribeVolumesInput{
 		Filters: []*ec2.Filter{
 			{
@@ -424,10 +446,20 @@ func (s *ebsService) GetVolumeByName(volumeName, dcName string) (*ec2.Volume, er
 		return nil, parseAwsError(err)
 	}
 
+	// Log all volumes found in aws
+	log.WithField("fn", "GetVolumeByName").
+		WithField("volume-name", volumeName).
+		Debugf("All volumes found: %s", volumesToString(volumes.Volumes))
+
 	var finalVolumes []*ec2.Volume
 	for _, volume := range volumes.Volumes {
 		if getTagValue("GarbageCollection", volume.Tags) == "" {
 			finalVolumes = append(finalVolumes, volume)
+		} else {
+			log.WithField("fn", "GetVolumeByName").
+				WithField("volume-name", volumeName).
+				WithField("volume-id", aws.StringValue(volume.VolumeId)).
+				Debugf("Skipping volume with GarbageCollection tag")
 		}
 	}
 	// Since tag Name is not AWS's identifying attribute (i.e. volume_id), we can get multiple results with same name

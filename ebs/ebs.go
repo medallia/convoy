@@ -414,7 +414,7 @@ func (d *Driver) BuildFromSnapshot(snapshot *ec2.Snapshot, args *BuildArgs) (*Bu
 	log.Debugf("Created volume=%v from EBS snapshot=%v", volumeID, *snapshot.SnapshotId)
 	// If there is an old volume then we will mark is for GarbageCollection
 	if err := d.MarkVolumeForGC(args.volumeId); err != nil {
-		return nil, err
+		return nil, util.NewConvoyDriverErr(fmt.Errorf("failed adding GC tag: %v", err), util.ErrGenericFailureCode)
 	}
 	return &BuildReturn{
 		volumeId:   volumeID,
@@ -802,8 +802,9 @@ func (d *Driver) DeleteVolume(req Request) error {
 		"DetachedAt":   time.Now().String(),
 	}
 	err := d.UpdateTags(volume.EBSID, detachTags)
+	// Do not fail when adding tracking tags, this should not be critical
 	if err != nil {
-		return err
+		log.WithField("volume-id", id).Warnf("failed adding detach tracking tags to volume: %v", err)
 	}
 
 	// Don't delete as per Medallia design, just remove reference
