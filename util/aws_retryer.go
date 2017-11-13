@@ -1,4 +1,4 @@
-package client
+package util
 
 import (
 	"math/rand"
@@ -9,56 +9,51 @@ import (
 	"github.com/aws/aws-sdk-go/aws/request"
 )
 
-// DefaultRetryer implements basic retry logic using exponential backoff for
-// most services. If you want to implement custom retry logic, implement the
-// request.Retryer interface or create a structure type that composes this
-// struct and override the specific methods. For example, to override only
-// the MaxRetries method:
-//
-//		type retryer struct {
-//      client.DefaultRetryer
-//    }
-//
-//    // This implementation always has 100 max retries
-//    func (d retryer) MaxRetries() int { return 100 }
-type DefaultRetryer struct {
-	NumMaxRetries int
+type ConvoyAWSRetryer struct {
+	NumMaxRetries    int
+	MinDelay         int
+	MinThrottleDelay int
+	MaxDelay         int
+}
+
+// DefaultConvoyAWSRetryer creates a new ConvoyAWSRetryer with sensible defaults
+func DefaultConvoyAWSRetryer() *ConvoyAWSRetryer {
+	return &ConvoyAWSRetryer{NumMaxRetries: 10, MinDelay: 200, MinThrottleDelay: 500, MaxDelay: 30000}
 }
 
 // MaxRetries returns the number of maximum returns the service will use to make
 // an individual API request.
-func (d DefaultRetryer) MaxRetries() int {
-	return d.NumMaxRetries
+func (c ConvoyAWSRetryer) MaxRetries() int {
+	return c.NumMaxRetries
 }
 
 var seededRand = rand.New(&lockedSource{src: rand.NewSource(time.Now().UnixNano())})
 
 // RetryRules returns the delay duration before retrying this request again
-func (d DefaultRetryer) RetryRules(r *request.Request) time.Duration {
-	// Set the upper limit of delay in retrying at ~five minutes
-	minTime := 30
-	throttle := d.shouldThrottle(r)
+func (c ConvoyAWSRetryer) RetryRules(r *request.Request) time.Duration {
+	log.Infof("Retrying Request - retry #%v, delay: %v", r.Error, r.RetryCount, r.RetryDelay)
+	minTime := c.MinDelay
+	throttle := c.shouldThrottle(r)
 	if throttle {
 		if delay, ok := getRetryDelay(r); ok {
 			return delay
 		}
 
-		minTime = 500
+		minTime = c.MinThrottleDelay
 	}
 
 	retryCount := r.RetryCount
-	if retryCount > 13 {
-		retryCount = 13
-	} else if throttle && retryCount > 8 {
-		retryCount = 8
-	}
 
 	delay := (1 << uint(retryCount)) * (seededRand.Intn(minTime) + minTime)
+
+	if delay > c.MaxDelay {
+		delay = c.MaxDelay
+	}
 	return time.Duration(delay) * time.Millisecond
 }
 
 // ShouldRetry returns true if the request should be retried.
-func (d DefaultRetryer) ShouldRetry(r *request.Request) bool {
+func (c ConvoyAWSRetryer) ShouldRetry(r *request.Request) bool {
 	// If one of the other handlers already set the retry state
 	// we don't want to override it based on the service's state
 	if r.Retryable != nil {
@@ -68,11 +63,11 @@ func (d DefaultRetryer) ShouldRetry(r *request.Request) bool {
 	if r.HTTPResponse.StatusCode >= 500 {
 		return true
 	}
-	return r.IsErrorRetryable() || d.shouldThrottle(r)
+	return r.IsErrorRetryable() || c.shouldThrottle(r)
 }
 
 // ShouldThrottle returns true if the request should be throttled.
-func (d DefaultRetryer) shouldThrottle(r *request.Request) bool {
+func (c ConvoyAWSRetryer) shouldThrottle(r *request.Request) bool {
 	switch r.HTTPResponse.StatusCode {
 	case 429:
 	case 502:

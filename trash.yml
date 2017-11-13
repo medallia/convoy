@@ -5,43 +5,46 @@ import:
   version: 6ba91e24c498b49d0363c723e9e2ab2b5b8fd012
 
 - package: github.com/aws/aws-sdk-go/aws
-  version: baba9e786eae5ba978f2007f8e718557b29157c8
+  version: e6c5e190452424b404ecdb81d6e3991d46b18e9d
 
 - package: github.com/aws/aws-sdk-go/private/protocol
-  version: 8649d278323ebf6bd20c9cd56ecb152b1c617375
+  version: e6c5e190452424b404ecdb81d6e3991d46b18e9d
 
 - package: github.com/aws/aws-sdk-go/private/endpoints
-  version: 8649d278323ebf6bd20c9cd56ecb152b1c617375
+  version: e6c5e190452424b404ecdb81d6e3991d46b18e9d
 
 - package: github.com/aws/aws-sdk-go/private/protocol/ec2query
-  version: 8649d278323ebf6bd20c9cd56ecb152b1c617375
+  version: e6c5e190452424b404ecdb81d6e3991d46b18e9d
 
 - package: github.com/aws/aws-sdk-go/private/protocol/query
-  version: 8649d278323ebf6bd20c9cd56ecb152b1c617375
+  version: e6c5e190452424b404ecdb81d6e3991d46b18e9d
 
 - package: github.com/aws/aws-sdk-go/private/protocol/rest
-  version: 8649d278323ebf6bd20c9cd56ecb152b1c617375
+  version: e6c5e190452424b404ecdb81d6e3991d46b18e9d
 
 - package: github.com/aws/aws-sdk-go/private/protocol/restxml
-  version: 8649d278323ebf6bd20c9cd56ecb152b1c617375
+  version: e6c5e190452424b404ecdb81d6e3991d46b18e9d
 
 - package: github.com/aws/aws-sdk-go/private/protocol/xml/xmlutil
-  version: 8649d278323ebf6bd20c9cd56ecb152b1c617375
+  version: e6c5e190452424b404ecdb81d6e3991d46b18e9d
 
 - package: github.com/aws/aws-sdk-go/private/signer/v4
-  version: 8649d278323ebf6bd20c9cd56ecb152b1c617375
+  version: e6c5e190452424b404ecdb81d6e3991d46b18e9d
 
 - package: github.com/aws/aws-sdk-go/private/waiter
-  version: 8649d278323ebf6bd20c9cd56ecb152b1c617375
+  version: e6c5e190452424b404ecdb81d6e3991d46b18e9d
 
 - package: github.com/aws/aws-sdk-go/service/sts
-  version: 8649d278323ebf6bd20c9cd56ecb152b1c617375
+  version: e6c5e190452424b404ecdb81d6e3991d46b18e9d
 
 - package: github.com/aws/aws-sdk-go/service/ec2
-  version: 8649d278323ebf6bd20c9cd56ecb152b1c617375
+  version: e6c5e190452424b404ecdb81d6e3991d46b18e9d
 
 - package: github.com/aws/aws-sdk-go/service/s3
-  version: 8649d278323ebf6bd20c9cd56ecb152b1c617375
+  version: e6c5e190452424b404ecdb81d6e3991d46b18e9d
+
+- package: github.com/aws/aws-sdk-go/internal/shareddefaults
+  version: e6c5e190452424b404ecdb81d6e3991d46b18e9d
 
 - package: github.com/codegangsta/cli
   version: c31a7975863e7810c92e2e288a9ab074f9a88f29

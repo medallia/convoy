@@ -147,6 +147,7 @@ func NewEBSService() (*ebsService, error) {
 	}
 
 	config := aws.NewConfig().WithRegion(s.Region).WithMaxRetries(10)
+	config.Retryer = util.DefaultConvoyAWSRetryer()
 	s.ec2Client = ec2.New(session.New(), config)
 	return s, nil
 }
