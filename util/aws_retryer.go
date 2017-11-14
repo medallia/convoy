@@ -31,11 +31,11 @@ var seededRand = rand.New(&lockedSource{src: rand.NewSource(time.Now().UnixNano(
 
 // RetryRules returns the delay duration before retrying this request again
 func (c ConvoyAWSRetryer) RetryRules(r *request.Request) time.Duration {
-	log.Infof("Retrying Request - retry #%v, delay: %v", r.Error, r.RetryCount, r.RetryDelay)
 	minTime := c.MinDelay
 	throttle := c.shouldThrottle(r)
 	if throttle {
 		if delay, ok := getRetryDelay(r); ok {
+			log.Infof("Retrying with suggested delay from headers: %v", delay)
 			return delay
 		}
 
@@ -49,6 +49,7 @@ func (c ConvoyAWSRetryer) RetryRules(r *request.Request) time.Duration {
 	if delay > c.MaxDelay {
 		delay = c.MaxDelay
 	}
+	log.Infof("Retrying Request - retry #%v, delay: %v", retryCount, delay)
 	return time.Duration(delay) * time.Millisecond
 }
 
