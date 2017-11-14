@@ -49,8 +49,9 @@ func (c ConvoyAWSRetryer) RetryRules(r *request.Request) time.Duration {
 	if delay > c.MaxDelay {
 		delay = c.MaxDelay
 	}
-	log.Infof("Retrying Request - retry #%v, delay: %v", retryCount, delay)
-	return time.Duration(delay) * time.Millisecond
+	timeDelay := time.Duration(delay) * time.Millisecond
+	log.Infof("Retrying Request (%v) - retry #%v, delay: %v", r.Error, retryCount, timeDelay)
+	return timeDelay
 }
 
 // ShouldRetry returns true if the request should be retried.
