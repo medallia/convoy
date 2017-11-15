@@ -96,3 +96,9 @@ import:
 
 - package: github.com/stretchr/testify
   version: 4d4bfba8f1d1027c4fdbe371823030df51419987
+
+- package: github.com/davecgh/go-spew/spew
+  version: ecdeabc65495df2dec95d7c4a4c3e021903035e5
+
+- package: github.com/pmezard/go-difflib/difflib
+  version: 792786c7400a136282c1664665ae0a8db921c6c2
