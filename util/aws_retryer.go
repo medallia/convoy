@@ -6,6 +6,8 @@ import (
 	"sync"
 	"time"
 
+	"net/http"
+
 	"github.com/aws/aws-sdk-go/aws/request"
 )
 
@@ -44,8 +46,10 @@ func (c ConvoyAWSRetryer) RetryRules(r *request.Request) time.Duration {
 
 	retryCount := r.RetryCount
 
+	// exponential delay with jitter
 	delay := (1 << uint(retryCount)) * (seededRand.Intn(minTime) + minTime)
 
+	// delay increases exponentially, but we cap it at a configurable max delay
 	if delay > c.MaxDelay {
 		delay = c.MaxDelay
 	}
@@ -71,10 +75,10 @@ func (c ConvoyAWSRetryer) ShouldRetry(r *request.Request) bool {
 // ShouldThrottle returns true if the request should be throttled.
 func (c ConvoyAWSRetryer) shouldThrottle(r *request.Request) bool {
 	switch r.HTTPResponse.StatusCode {
-	case 429:
-	case 502:
-	case 503:
-	case 504:
+	case http.StatusTooManyRequests:
+	case http.StatusBadGateway:
+	case http.StatusServiceUnavailable:
+	case http.StatusGatewayTimeout:
 	default:
 		return r.IsErrorThrottle()
 	}
@@ -106,8 +110,8 @@ func getRetryDelay(r *request.Request) (time.Duration, bool) {
 // the status code.
 func canUseRetryAfterHeader(r *request.Request) bool {
 	switch r.HTTPResponse.StatusCode {
-	case 429:
-	case 503:
+	case http.StatusTooManyRequests:
+	case http.StatusServiceUnavailable:
 	default:
 		return false
 	}
@@ -121,15 +125,14 @@ type lockedSource struct {
 	src rand.Source
 }
 
-func (r *lockedSource) Int63() (n int64) {
+func (r *lockedSource) Int63() int64 {
 	r.lk.Lock()
-	n = r.src.Int63()
-	r.lk.Unlock()
-	return
+	defer r.lk.Unlock()
+	return r.src.Int63()
 }
 
 func (r *lockedSource) Seed(seed int64) {
 	r.lk.Lock()
+	defer r.lk.Unlock()
 	r.src.Seed(seed)
-	r.lk.Unlock()
 }
