@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
+	"log"
 )
 
 var (
@@ -14,18 +15,23 @@ var (
 	ErrResizeNotAvailable         = errors.New("resize function not available for the filesystem type of this volume")
 )
 
-func FormatDevice(devicePath string, fsType string) error {
+func FormatDevice(devicePath string, fsType string, fsOptions string) error {
 	switch fsType {
 	case "btrfs", "ext2", "ext3", "ext4", "minix", "xfs":
 	default:
 		return ErrUnrecognizedFilesystemType
 	}
-	cmd, err := sudoCmd("sh", "-c", fmt.Sprintf("set -e && yes | mkfs.%v %v", fsType, devicePath))
-	if err != nil {
-		return err
+	var fsOptionsSlice []string
+	if fsOptions != "" {
+		fsOptionsSlice = strings.Split(fsOptions, " ")
 	}
+	cmdEnd := append(fsOptionsSlice, devicePath)
+
+	log.Printf("mkfs.%v %v", fsType, strings.Join(cmdEnd, " "))
+
+	cmd := exec.Command(fmt.Sprintf("mkfs.%v", fsType), cmdEnd...)
 	if output, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("FormatDevice: %v: %s", string(output), err)
+		return fmt.Errorf("Failed to create %v filesystem on device=%v - error=%s - stderr=%s", fsType, devicePath, err, string(output))
 	}
 	return nil
 }
@@ -58,13 +64,11 @@ func Resize(devicePath string) error {
 	if err != nil {
 		return err
 	}
-
 	switch fsType {
 	case "ext2", "ext3", "ext4":
 	default:
 		return ErrResizeNotAvailable
 	}
-
 	cmd, err := sudoCmd("resize2fs", "-f", devicePath)
 	if err != nil {
 		return err
@@ -73,6 +77,14 @@ func Resize(devicePath string) error {
 	output = bytes.Trim(output, "\r\n \t")
 	if err != nil {
 		return fmt.Errorf("Resize: %v: %v", devicePath, string(output))
+	}
+	return nil
+}
+
+func Check(devicePath string) error {
+	output, err := exec.Command("fsck", "-a", devicePath).CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("Failed to check filesystem in device=%s - error=%s - stderr=%s", devicePath, err, string(output))
 	}
 	return nil
 }

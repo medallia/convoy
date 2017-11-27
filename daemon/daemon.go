@@ -314,6 +314,9 @@ func Start(sockFile string, c *cli.Context) error {
 
 	// driverOpts would be ignored by Convoy Drivers if config already exists
 	driverOpts := util.SliceToMap(c.StringSlice("driver-opts"))
+	if driverOpts == nil {
+		log.Fatalf("Driver-opts are not correctly formatted")
+	}
 	if err := s.initDrivers(driverOpts); err != nil {
 		return err
 	}

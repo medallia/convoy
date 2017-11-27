@@ -170,7 +170,7 @@ func VolumeMount(v interface{}, mountPoint string, remount bool) (string, error)
 	return mountPoint, nil
 }
 
-func VolumeUmount(v interface{}) error {
+func VolumeUmount(v interface{}, options ...string) error {
 	vol, err := getVolumeOps(v)
 	if err != nil {
 		return err
@@ -180,7 +180,8 @@ func VolumeUmount(v interface{}) error {
 		log.Debugf("Umount a umounted volume %v", getVolumeName(vol))
 		return nil
 	}
-	if err := callUmount([]string{mountPoint}); err != nil {
+	mountOptions := append([]string{mountPoint}, options...)
+	if err := callUmount(mountOptions); err != nil {
 		return err
 	}
 	if mountPoint == vol.GenerateDefaultMountPoint() {

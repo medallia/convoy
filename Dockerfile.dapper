@@ -12,11 +12,18 @@ RUN apt-get update && \
         linux-libc-dev \
         pkg-config \
         psmisc \
-        python-tox
+        python-tox \
+        gem \
+        ruby-dev \
+        build-essential \
+        rubygems \
+        rpm
+
+RUN gem install --no-ri --no-rdoc fpm
 
 # Install Go
-ENV GOVERSION 1.6.2
-ENV GOSHA256 e40c36ae71756198478624ed1bb4ce17597b3c19d243f3f0899bb5740d56212a
+ENV GOVERSION 1.8.3
+ENV GOSHA256 1862f4c3d3907e59b04a757cfda0ea7aa9ef39274af99a784f5be843c80c6772
 
 RUN curl -o go${GOVERSION}.linux-amd64.tar.gz https://storage.googleapis.com/golang/go${GOVERSION}.linux-amd64.tar.gz \
     && echo "${GOSHA256} go${GOVERSION}.linux-amd64.tar.gz" | sha256sum --check \
